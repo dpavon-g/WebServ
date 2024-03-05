@@ -2,7 +2,7 @@
 
 #### Create an http server from scratch in c++. We learn in depth the concepts of websockets.
 
-#### The group is made up of [jalvarad-1](https://github.com/jalvarad-1), [cristiana-marcu](https://github.com/cristiana-marcu) and [dpavon-g](https://github.com/dpavon-g).
+#### The group is made up of [jalvarad-1](https://github.com/jalvarad-1), [cristiana-marcu](https://github.com/cristiana-marcu), [vguttenb](https://github.com/Gutten42) and [dpavon-g](https://github.com/dpavon-g).
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## Config file documentation
 
-There are quite a few things to keep in mind when making and parsing the config file. [Here](https://github.com/jalvarad-1/WebServ/blob/dpavon/docu/configFile.md) you have the docu of how we propose it.
+There are quite a few things to keep in mind when making and parsing the config file. [Here](https://github.com/dpavon-g/WebServ/blob/master/docu/configFile.md) you have the docu of how we propose it.
 
 ## HTTPRequest Class
 The HTTPRequest class is a representation of an [HTTP request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Messages#http_requests), providing a structured way to access the different components of the request, such as the method, URI, HTTP version, headers and body. This class only checks basic formatting and does not check if there is a virtual server registered with that uri and that method is accepted.
