@@ -35,20 +35,16 @@ int HTTPServer::acceptConnection()
 {
     struct sockaddr_in address = getSocket()->getAddress();
     int addrlen = sizeof(address);
-    // std::cout << "Puerto usado: " << get_socket()->get_sock() << std::endl;
     _new_socket = accept(getSocket()->getSock(), (struct sockaddr *)&address, (socklen_t*)&addrlen);
     if (_new_socket == -1)
-        std::cout << "Error" << std::endl;
-    std::cout << "\nRecibimos conexion socket: " << _new_socket << std::endl;
+        std::cerr << "Webserv Error: failed to connect" << std::endl;
     return (_new_socket);
 }
 
 short int HTTPServer::getRequestStatus(BufferRequest & bufferRequest) {
-	std::cerr << "Voy a comprobar el tipo de body en la request" << std::endl;
 	if (bufferRequest.request.getHeader("Transfer-Encoding") == "chunked")
 		return CHUNKED_BODY;
 	bufferRequest.content_length = bufferRequest.request.returnContentLength();
-	std::cerr << bufferRequest.request.returnContentLength() << std::endl;
 	if ( bufferRequest.content_length != -1 )	
 		return FILLING_BODY;
 	return FULL_REQUEST;
@@ -57,18 +53,14 @@ short int HTTPServer::getRequestStatus(BufferRequest & bufferRequest) {
 ssize_t HTTPServer::readFromFd( int socket, std::string & bufferStr ) {
 	char buffer[SERVER_BUFFER_SIZE] ;
 	ssize_t bytes_read = recv(socket, buffer, SERVER_BUFFER_SIZE - 1, MSG_DONTWAIT);
-	std::cerr << bytes_read << " read from socket " << socket << std::endl;
-	// sleep(1);
 	if (bytes_read > 0) {
 		buffer[bytes_read] = '\0';
 		bufferStr.append(buffer);
 	}
-	//std::cout << "---AFTER SUCCESSFUL READ BUFFERSTR LOOKS LIKE: ---\n" << bufferStr << "\n---" << std::endl;
 	return bytes_read;
 }
 
 bool HTTPServer::parseChunk(std::string & bufferStr, int wr_fd, int * content_length) {
-	//std::cout << "\n---I'm going to read from---\n" << bufferStr << "\n---" << std::endl;
 	size_t firstRN = bufferStr.find("\r\n");
 	if (firstRN == std::string::npos)
 		return false ;
@@ -82,7 +74,6 @@ bool HTTPServer::parseChunk(std::string & bufferStr, int wr_fd, int * content_le
 	size_t secondRN = bufferStr.find("\r\n", firstRN);
 	if (secondRN == std::string::npos)
 		return false ;
-	std::cout << "YAY I FOUND THE END" << std::endl;
 	auxStr = bufferStr.substr(firstRN, secondRN - firstRN);
 	int writtenBytes = write(wr_fd, auxStr.c_str(), auxStr.size());
 	if ( writtenBytes != static_cast<int>(auxStr.size())) {
@@ -129,20 +120,13 @@ int HTTPServer::handleRead( int socket, BufferRequest & bufferRequest ) {
 		LocationRules locationRules;
 		switch (bufferRequest.status) {
 			case NEW_REQUEST:
-				// BUSCAMOS RNRN Y GENERAMOS LA NUEVA REQUEST
 				rnrn = bufferStr.find("\r\n\r\n");
 				if ( rnrn == std::string::npos ) {
-					std::cerr << "NO HE ENCONTRADO EL FINAL" << std::endl;
 					return -1 ;
 				}
 				rnrn += 4;
 				bufferRequest.request = HTTPRequest(bufferStr.substr(0, rnrn), _serverConfig);
-				std::cout << "\n---Request---\n" << bufferStr.substr(0, rnrn) << "---" << std::endl;
-				
-				// CLEAN BUFFER
 				bufferStr.erase(0, rnrn);
-
-				// CHECK REQUEST ERRORS
 				if (bufferRequest.request.getErrorCode() != 200) {
 					Response httpResponse;
 					LocationRules & locationRules = *(bufferRequest.request.getLocationRules());
@@ -155,19 +139,14 @@ int HTTPServer::handleRead( int socket, BufferRequest & bufferRequest ) {
 					sendResponse(socket, httpResponse);
 					return 0;
 				}
-
 				bufferRequest.status = getRequestStatus(bufferRequest);
-
 				if ( bufferRequest.status == FULL_REQUEST ) {
 					return 1;
 				}
-
-				//GENERATE FILE FOR BODY
 				bufferRequest.request._body_file_name = getTempFile();
-				std::cerr << "VOY A CREAR EL ARCHIVO " << bufferRequest.request._body_file_name << " PARA LA REQUEST DE ARRIBA" << std::endl;
 				bufferRequest.request._body_file_fd = open(bufferRequest.request._body_file_name.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
 				if (bufferRequest.request._body_file_fd == -1) {
-					std::cerr << "UNABLE TO OPEN FILE " << bufferRequest.request._body_file_name << std::endl;
+					std::cerr << "Webserv Error: unable to open file \"" << bufferRequest.request._body_file_name << "\""  << std::endl;
 					throw std::runtime_error("Open error");
 				}
 
@@ -181,7 +160,6 @@ int HTTPServer::handleRead( int socket, BufferRequest & bufferRequest ) {
 			case CHUNKED_BODY:
 				return readChunkedBody(bufferRequest, bufferStr);
 			default:
-				// THIS SHOULD NEVER HAPPEN 
 				return -1;
 		}
 	}
@@ -194,27 +172,22 @@ int HTTPServer::handleEvent( int socket, CGIManager & cgiManager ) {
 	    case -1 :
 	        return -1 ;
 	    case 0 :
-            std::cout << "Cerramos el socket: " << socket << std::endl;
             close(socket);
 			_bufferedRequests.erase(socket);
 	        return 0 ;
 	    default :
 			HTTPRequest & httpRequest = bufferRequest.request;
-			std::cout << "Uri: " << httpRequest.getURI() << std::endl;
 			LocationRules & locationRules = *(httpRequest.getLocationRules());
 			Response httpResponse;
-			// std::string file_path = Routing::createFilePath(locationRules, httpRequest);
 			std::string file_path = httpRequest.getFilePath();
 			int cgi_fd;
 			switch (Routing::typeOfResource(file_path, locationRules, httpRequest.getMethod())) {
 				case ISCGI:
-					std::cerr << "SÍ QUE SOY UN CGI" << std::endl;
 					if (httpRequest._body_file_name.empty()) {
 						httpRequest._body_file_name = getTempFile();
-						std::cerr << "VOY A CREAR EL ARCHIVO " << httpRequest._body_file_name << " PORQUE MI CGI NO TIENE BODY" << std::endl;
 						httpRequest._body_file_fd = open(httpRequest._body_file_name.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
 						if (httpRequest._body_file_fd == -1) {
-							std::cerr << "UNABLE TO OPEN FILE " << httpRequest._body_file_name << std::endl;
+							std::cerr << "Webserv Error: unable to open file \"" << httpRequest._body_file_name << "\""  << std::endl;
 							throw std::runtime_error("Open error");
 						}
 						close(httpRequest._body_file_fd);
@@ -227,16 +200,15 @@ int HTTPServer::handleEvent( int socket, CGIManager & cgiManager ) {
 					_bufferedRequests.erase(socket);
 					return cgi_fd;
 				case ISDIR:
-					httpResponse = Routing::processDirPath(file_path, locationRules);//process directory
+					httpResponse = Routing::processDirPath(file_path, locationRules);
 					break;
 				case ISFILE:
-					httpResponse = Routing::processFilePath(file_path);//process file        
+					httpResponse = Routing::processFilePath(file_path);     
 					break;
 				case ISNAM:
 					httpResponse.response_code = 405;
 					break;
 				default:
-					std::cerr << "NO ES NAH" << std::endl;
 					httpResponse.response_code = 404;
 			}
 		if (!httpRequest._body_file_name.empty()) {
@@ -246,7 +218,6 @@ int HTTPServer::handleEvent( int socket, CGIManager & cgiManager ) {
 			Routing::errorResponse(httpResponse, locationRules);
 		}
 		sendResponse(socket, httpResponse);
-		std::cout << "Cerramos el socket: " << socket << std::endl;
     	close(socket);
 		_bufferedRequests.erase(socket);
 		return 0 ;
@@ -290,7 +261,6 @@ std::string getContentType(std::string file_path) {
     }
     std::vector<std::string> path = split_char(file_path, '/');
     std::string file = path.empty()? "" : path.back();
-    std::cout << "segunda linea file path" << std::endl;
     std::vector<std::string> file_split = split_char(file, '.');
     std::string extension;
     std::string content_type;
@@ -303,7 +273,6 @@ std::string getContentType(std::string file_path) {
     else {
         content_type = "text/plain";
     }
-    std::cout << "getContentType: " << content_type << std::endl;
     return (content_type);
 }
 
@@ -321,7 +290,7 @@ int HTTPServer::sendResponse(int socket, Response & httpResponse)
 	}
     response << "\r\n";
 	response << httpResponse.string_body;
-	// std::cout << "\n---Response---\n" << response.str() <<  "---" << std::endl;
+	signal(SIGPIPE, SIG_IGN);
     send(socket, response.str().c_str(), response.str().size(), 0);
     return -1;
 }

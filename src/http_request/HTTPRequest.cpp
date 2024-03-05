@@ -14,7 +14,7 @@ void trim(std::string& s)
         s = s.substr(start, end - start + 1);
 }
 
-HTTPRequest::HTTPRequest(void) {//Dummy constructor
+HTTPRequest::HTTPRequest(void) {
 	_body_file_fd = -1;
 }
 
@@ -36,19 +36,17 @@ HTTPRequest::HTTPRequest(const std::string& raw_request, ServerConfig& serverCon
 	}
     int content_lenght = returnContentLength();
     if (content_lenght != -1 && _location_rules->getMaxBodySize() != 0 && content_lenght > _location_rules->getMaxBodySize()) {
-        std::cerr << "MAX BODY SIZE: " << _location_rules->getMaxBodySize() << std::endl;
         _error_code = 413;
         return ;
     }
 	_file_path = Routing::createFilePath(*_location_rules, *this);
 	if (_method == "DELETE") {
 		_headers["Content-Disposition"] = "filename=\"" + _file_path + "\"";
-		_file_path = _location_rules->getDeleteCGI(); //PATH DEL CGI DE DELETE
+		_file_path = _location_rules->getDeleteCGI();
 		if (_file_path.empty()) {
 			_error_code = 500;
 			return ;
 		}
-		// WHATEVER DELETE CGI NEEDS
 	}
     _error_code = 200;
 }
@@ -78,13 +76,11 @@ bool HTTPRequest::parse(const std::string& raw_request) {
 		return false ;
 	}
     _http_version = "HTTP/1.1";
-    std::cout << "parseando linea request" << std::endl ;
     while (std::getline(ss, line) && !line.empty() && line != "\r")
     {
         std::size_t colon_pos = line.find(':');
         if (colon_pos == std::string::npos)
         {
-            std::cout << "1" << std::endl;
             return false;
         }
 
@@ -101,7 +97,7 @@ bool HTTPRequest::parse(const std::string& raw_request) {
             return false;
         }
     }
-    return true;// devuelve true si todo salió bien, o false si hubo algún error
+    return true;
 }
 
 std::string HTTPRequest::getMethod() const

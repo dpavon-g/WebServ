@@ -28,7 +28,7 @@ void MultiServer::run() {
     while (true) {
         int ret = poll(poll_fds.data(), poll_fds.size(), -1);
         if (ret < 0) {
-            perror("poll failed");
+			std::cerr << "Webserv Error: poll failed" << std::endl;
             exit(EXIT_FAILURE);
         }
         for (int i = static_cast<int>(poll_fds.size()) - 1; i >= 0 ; i--) {
@@ -36,7 +36,6 @@ void MultiServer::run() {
 				struct fd_info & current_fd = fd_index[poll_fds[i].fd];
 				switch (current_fd.fd_type) {
 					case LISTENING_PORT:
-						std::cerr << "RECIBIMOS DATOS POR EL listening FD " << poll_fds[i].fd << std::endl;
 						socket = current_fd.server->acceptConnection();
 						if (socket == -1)
 							break;
@@ -44,31 +43,25 @@ void MultiServer::run() {
 						fd_index[socket] = fd_info(CONNECTION_SOCKET, current_fd.server);
 						continue ;
 					case CONNECTION_SOCKET:
-						std::cerr << "RECIBIMOS DATOS POR EL socket FD " << poll_fds[i].fd << std::endl;
-						readResult = current_fd.server->handleEvent(poll_fds[i].fd, cgiManager);//cgi -> NULL , socket -> httpServer (map <int , httpServer>)
+						readResult = current_fd.server->handleEvent(poll_fds[i].fd, cgiManager);
 						switch (readResult) {
 							case -1:
 								continue ;
 							case 0:
-								std::cerr << "VOY A BORRAR EL socket FD " << poll_fds[i].fd << std::endl;
 								erasePollfd(i);
 								continue ;
 							default:
 								fd_index[readResult] = fd_info(CGI_FD, NULL);
 								poll_fds.push_back(createPollfd(readResult));
-								std::cerr << "VOY A BORRAR EL socket FD " << poll_fds[i].fd << " TRAS EJECUTAR UN CGI" << std::endl;
 								erasePollfd(i);
 						}
 						continue ;
 					case CGI_FD:
-						// std::cerr << "RECIBIMOS DATOS POR EL cgi FD " << poll_fds[i].fd << std::endl;
 						if (!cgiManager.readOutput(poll_fds[i].fd)) {
-							std::cerr << "VOY A BORRAR EL cgi FD " << poll_fds[i].fd << std::endl;
 							erasePollfd(i);						
 						}
 						continue ;
-					default:
-						std::cerr << "AYUDA ESTO NO DEBERÍA OCURRIR" << std::endl;
+					default:;
 				}
             }		
         }

@@ -36,14 +36,12 @@ namespace simpleParser {
             server.locations[key_value].setKeyValue(key_value);
             mCurrentToken++;
             if (expectOperator("{").mType != EMPTY) {
-                std::cout << "Location block found" << std::endl;
-
                 Type type;
                 while(expectOperator("}").mType == EMPTY) {
                     type = expectType();
 
                     if (!expectAttributesDefinition(server , key_value, type.mType)) {
-                        std::cout << "Location no configuarado correctamente" << std::endl;
+                        std::cerr << "Webserv Error: Location not configured properly" << std::endl;
                         return false;
                     }
                 }
@@ -166,15 +164,14 @@ namespace simpleParser {
     }
 
     bool Parser::expectServerDefinition() {
-        if (expectIdentifier("server").mType != EMPTY) {//We have a server!!
+        if (expectIdentifier("server").mType != EMPTY) {
             if (expectOperator("{").mType != EMPTY) {
-                std::cout << "Server block found" << std::endl;
                 ServerConfig server;
                 
                 while(expectOperator("}").mType == EMPTY) {
 
-                    if (!expectServerAttributesDefinition(server)) {//We have a server attribute!!
-                        std::cout << "Server no configuarado correctamente" << std::endl;// 
+                    if (!expectServerAttributesDefinition(server)) {
+                        std::cerr << "Webserv Error: Server not properly configured" << std::endl;
                         return false;
                     }
                 }
@@ -193,13 +190,11 @@ namespace simpleParser {
         
         while (mCurrentToken != mEndToken) {
             if (!expectServerDefinition()) {
-                throw std::runtime_error("Unknown identifier " + mCurrentToken->mText + \
-                                        " line: " + ".");
+                throw std::runtime_error("Unknown identifier " + mCurrentToken->mText);
             }
         }
         if (_confServers.empty())
             throw std::runtime_error("No server definition found");
-        // printServers();
     }
 
     Token Parser::expectOperator(const std::string & name) {
